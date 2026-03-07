@@ -49,8 +49,8 @@ class BillService {
       return rows.map(Bill.fromJson).toList(growable: false);
     } on PostgrestException catch (error) {
       throw Exception(error.message);
-    } catch (_) {
-      throw Exception('Unexpected error while searching bills.');
+    } catch (error) {
+      throw Exception('Unexpected error while searching bills: $error');
     }
   }
 

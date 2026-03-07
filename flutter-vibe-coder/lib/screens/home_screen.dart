@@ -21,6 +21,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _queryController = TextEditingController();
+  final FocusNode _queryFocusNode = FocusNode();
 
   BillSearchType _searchType = BillSearchType.connectionNumber;
   List<Bill> _results = const [];
@@ -37,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _queryController.dispose();
+    _queryFocusNode.dispose();
     super.dispose();
   }
 
@@ -104,7 +106,9 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildSearchTypeSelector(),
               const SizedBox(height: 12),
               TextField(
+                key: ValueKey(_searchType),
                 controller: _queryController,
+                focusNode: _queryFocusNode,
                 keyboardType: _keyboardTypeFor(_searchType),
                 textInputAction: TextInputAction.search,
                 onSubmitted: (_) => _search(),
@@ -141,31 +145,73 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildSearchTypeSelector() {
-    return SegmentedButton<BillSearchType>(
-      segments: const [
-        ButtonSegment<BillSearchType>(
-          value: BillSearchType.connectionNumber,
-          label: Text('Connection Number'),
-          icon: Icon(Icons.electrical_services_outlined),
-        ),
-        ButtonSegment<BillSearchType>(
-          value: BillSearchType.mobileNumber,
-          label: Text('Mobile Number'),
-          icon: Icon(Icons.phone_outlined),
-        ),
-        ButtonSegment<BillSearchType>(
-          value: BillSearchType.name,
-          label: Text('Name'),
-          icon: Icon(Icons.person_outline),
-        ),
-      ],
-      selected: {_searchType},
-      showSelectedIcon: false,
-      onSelectionChanged: (selection) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _buildSearchChip(
+            type: BillSearchType.connectionNumber,
+            label: 'Connection Number',
+            icon: Icons.electrical_services_outlined,
+          ),
+          const SizedBox(width: 8),
+          _buildSearchChip(
+            type: BillSearchType.mobileNumber,
+            label: 'Mobile Number',
+            icon: Icons.phone_outlined,
+          ),
+          const SizedBox(width: 8),
+          _buildSearchChip(
+            type: BillSearchType.name,
+            label: 'Name',
+            icon: Icons.person_outline,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchChip({
+    required BillSearchType type,
+    required String label,
+    required IconData icon,
+  }) {
+    final isSelected = _searchType == type;
+    return ChoiceChip(
+      selected: isSelected,
+      onSelected: (_) {
+        if (isSelected) {
+          return;
+        }
+
+        FocusScope.of(context).unfocus();
         setState(() {
-          _searchType = selection.first;
+          _searchType = type;
         });
       },
+      avatar: Icon(
+        icon,
+        size: 18,
+        color: const Color(0xFF0A2463),
+      ),
+      label: Text(
+        label,
+        softWrap: false,
+      ),
+      labelStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: const Color(0xFF0A2463),
+            fontWeight: FontWeight.w700,
+          ),
+      selectedColor: const Color(0xFFD7E6F7),
+      backgroundColor: Colors.white,
+      side: BorderSide(
+        color: const Color(0xFF0A2463).withValues(alpha: 0.35),
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(999),
+      ),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     );
   }
 
