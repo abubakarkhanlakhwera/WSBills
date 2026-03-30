@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/bill.dart';
 import '../services/bill_service.dart';
@@ -20,26 +23,132 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static const String _recentSearchesKey = 'recent_bill_searches_v1';
+  static const int _maxRecentSearches = 10;
+
   final TextEditingController _queryController = TextEditingController();
   final FocusNode _queryFocusNode = FocusNode();
 
   BillSearchType _searchType = BillSearchType.connectionNumber;
+  List<_RecentSearchEntry> _recentSearches = const [];
   List<Bill> _results = const [];
   bool _isLoading = false;
   bool _hasSearched = false;
+  bool _showSuggestions = false;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
     _errorMessage = widget.startupError;
+    _queryFocusNode.addListener(_onSearchFieldFocusChanged);
+    _loadRecentSearches();
   }
 
   @override
   void dispose() {
+    _queryFocusNode.removeListener(_onSearchFieldFocusChanged);
     _queryController.dispose();
     _queryFocusNode.dispose();
     super.dispose();
+  }
+
+  void _onSearchFieldFocusChanged() {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _showSuggestions = _queryFocusNode.hasFocus;
+    });
+  }
+
+  Future<void> _loadRecentSearches() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final encoded = prefs.getStringList(_recentSearchesKey) ?? const [];
+      final parsed = encoded
+          .map(_RecentSearchEntry.decode)
+          .whereType<_RecentSearchEntry>()
+          .toList(growable: false);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _recentSearches = parsed.take(_maxRecentSearches).toList(growable: false);
+      });
+    } catch (_) {
+      // Ignore cache read errors so search still works.
+    }
+  }
+
+  Future<void> _rememberSearch({
+    required BillSearchType type,
+    required String query,
+  }) async {
+    final normalized = query.trim();
+    if (normalized.isEmpty) {
+      return;
+    }
+
+    final updated = _recentSearches.toList(growable: true)
+      ..removeWhere(
+        (entry) =>
+            entry.type == type &&
+            entry.query.toLowerCase() == normalized.toLowerCase(),
+      )
+      ..insert(0, _RecentSearchEntry(type: type, query: normalized));
+
+    if (updated.length > _maxRecentSearches) {
+      updated.removeRange(_maxRecentSearches, updated.length);
+    }
+
+    final recent = updated.toList(growable: false);
+
+    if (mounted) {
+      setState(() {
+        _recentSearches = recent;
+      });
+    } else {
+      _recentSearches = recent;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _recentSearchesKey,
+      recent.map((entry) => entry.encode()).toList(growable: false),
+    );
+  }
+
+  List<_RecentSearchEntry> _filteredSuggestions() {
+    final input = _queryController.text.trim().toLowerCase();
+    final matches = _recentSearches
+        .where(
+          (entry) =>
+              entry.type == _searchType &&
+              (input.isEmpty || entry.query.toLowerCase().contains(input)),
+        )
+        .toList(growable: false);
+
+    return matches.take(_maxRecentSearches).toList(growable: false);
+  }
+
+  Future<void> _onSuggestionTap(_RecentSearchEntry entry) async {
+    _queryController
+      ..text = entry.query
+      ..selection = TextSelection.fromPosition(
+        TextPosition(offset: entry.query.length),
+      );
+
+    setState(() {
+      _searchType = entry.type;
+      _showSuggestions = false;
+    });
+
+    FocusScope.of(context).unfocus();
+    await _search();
   }
 
   Future<void> _search() async {
@@ -56,6 +165,12 @@ class _HomeScreenState extends State<HomeScreen> {
         _errorMessage = widget.startupError;
       });
       return;
+    }
+
+    try {
+      await _rememberSearch(type: _searchType, query: query);
+    } catch (_) {
+      // Ignore cache write errors so search still runs.
     }
 
     setState(() {
@@ -111,12 +226,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 focusNode: _queryFocusNode,
                 keyboardType: _keyboardTypeFor(_searchType),
                 textInputAction: TextInputAction.search,
+                onChanged: (_) {
+                  if (!mounted) {
+                    return;
+                  }
+
+                  setState(() {
+                    _showSuggestions = _queryFocusNode.hasFocus;
+                  });
+                },
                 onSubmitted: (_) => _search(),
                 decoration: InputDecoration(
                   hintText: _hintFor(_searchType),
                   prefixIcon: const Icon(Icons.search),
                 ),
               ),
+              _buildSuggestions(),
               if (_errorMessage != null) ...[
                 const SizedBox(height: 8),
                 Text(
@@ -187,6 +312,7 @@ class _HomeScreenState extends State<HomeScreen> {
         FocusScope.of(context).unfocus();
         setState(() {
           _searchType = type;
+          _showSuggestions = false;
         });
       },
       avatar: Icon(
@@ -215,13 +341,64 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildSuggestions() {
+    final suggestions = _filteredSuggestions();
+    if (!_showSuggestions || suggestions.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final maxHeight = suggestions.length * 56.0;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Material(
+        color: Colors.white,
+        elevation: 2,
+        borderRadius: BorderRadius.circular(12),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight.clamp(56.0, 280.0)),
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: suggestions.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final suggestion = suggestions[index];
+              return ListTile(
+                dense: true,
+                leading: const Icon(Icons.history_rounded),
+                title: Text(
+                  suggestion.query,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(_labelFor(suggestion.type)),
+                onTap: () => _onSuggestionTap(suggestion),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _labelFor(BillSearchType type) {
+    switch (type) {
+      case BillSearchType.connectionNumber:
+        return 'Connection Number';
+      case BillSearchType.mobileNumber:
+        return 'Mobile Number';
+      case BillSearchType.name:
+        return 'Name';
+    }
+  }
+
   Widget _buildStateBody() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
     if (!_hasSearched) {
-      return _StateMessage(
+      return const _StateMessage(
         icon: Icons.receipt_long_outlined,
         title: 'Find Your Utility Bill',
         subtitle: 'Choose a search type and tap Search to see bill details.',
@@ -229,7 +406,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (_results.isEmpty) {
-      return _StateMessage(
+      return const _StateMessage(
         icon: Icons.search_off_rounded,
         title: 'No bill found',
         subtitle: 'Try a different search value or search type.',
@@ -281,6 +458,46 @@ class _HomeScreenState extends State<HomeScreen> {
         return TextInputType.phone;
       case BillSearchType.name:
         return TextInputType.text;
+    }
+  }
+}
+
+class _RecentSearchEntry {
+  const _RecentSearchEntry({
+    required this.type,
+    required this.query,
+  });
+
+  final BillSearchType type;
+  final String query;
+
+  String encode() {
+    return jsonEncode({
+      'type': type.name,
+      'query': query,
+    });
+  }
+
+  static _RecentSearchEntry? decode(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) {
+        return null;
+      }
+
+      final typeName = decoded['type'] as String?;
+      final query = decoded['query'] as String?;
+      if (typeName == null || query == null || query.trim().isEmpty) {
+        return null;
+      }
+
+      final type = BillSearchType.values.firstWhere(
+        (value) => value.name == typeName,
+        orElse: () => BillSearchType.name,
+      );
+      return _RecentSearchEntry(type: type, query: query.trim());
+    } catch (_) {
+      return null;
     }
   }
 }
