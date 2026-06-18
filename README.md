@@ -1,36 +1,49 @@
-# Wsbills
+# WSBills - Water Supply Billing App
 
-Flutter/Dart workspace for water supply billing workflows.
+WSBills is a Flutter/Dart application for water supply billing workflows.
 
-## Overview
+The goal of this project is simple: make local water billing easier to manage, record, and review. Many small water supply setups still depend on manual registers, spreadsheets, paper slips, or scattered records. That can make it difficult to track consumers, billing cycles, payments, pending dues, and service history in one place.
 
-This is a Mobile application prototype repository. It is part of my broader GitHub portfolio showing hands-on work across AI, web development, automation, and software engineering fundamentals.
+## Problem It Solves
 
-## What It Demonstrates
+Water supply billing is a recurring operational task. When the process is manual, teams can run into problems such as:
 
-- Practical implementation and experimentation rather than only theory.
-- Familiarity with the repository's core stack and development workflow.
-- Iterative learning through small projects, exercises, or prototypes.
+- bills being recorded in different places
+- payment status being hard to verify
+- customer or consumer records becoming inconsistent
+- monthly billing work taking too much time
+- limited visibility into pending dues and collection status
+
+WSBills is intended to support that workflow with a dedicated app experience.
+
+## Purpose
+
+This app was developed for water supply billing and community-service use cases. It is meant to help local operators or service teams manage billing-related work more clearly and with less manual effort.
+
+## What The App Represents
+
+- A practical Flutter app for a real-world billing workflow
+- A community-service oriented software project
+- A mobile-first approach to water supply bill management
+- A foundation that can grow into customer records, billing history, payment tracking, reports, and admin workflows
 
 ## Tech Stack
 
-- Primary language: Dart
-- Topics: billing, dart, flutter
+- Flutter
+- Dart
+- Mobile-first application structure
 
-## Repository Structure
+## Current Status
 
-- Top-level folders: .vscode, flutter-vibe-coder
-- Top-level files: MASTER_INSTRUCTIONS.md
+This repository is public to show the direction and purpose of the project. It should be reviewed before adding real customer data, private billing records, credentials, or deployment-specific configuration.
 
-## Status
+## Future Improvements
 
-This repository is public today, but it should be reviewed before being promoted heavily in applications because the name/content suggests billing, operational, research, or client-style work.
-
-## Next Improvements
-
-- Add screenshots, sample outputs, or a short demo where relevant.
-- Expand setup instructions for local development.
-- Document the main learning outcome, architecture, and edge cases.
+- Add screenshots of the main app screens
+- Document the billing flow step by step
+- Add setup and run instructions for Flutter
+- Add sample/demo data instead of real billing data
+- Expand the README with app architecture and feature details
 
 ## Author
 
