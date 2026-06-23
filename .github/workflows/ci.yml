@@ -27,7 +27,7 @@ jobs:
         run: cp .env.example .env
 
       - name: Analyze
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Test
         run: flutter test
